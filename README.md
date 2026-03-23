@@ -83,3 +83,30 @@ laravel-medical is a full-stack web application that allows the user to manage a
 | Doctor    | doctor@clinictlemcen.com    | 123456   |
 | Doctor    | doctor2@clinictlemcen.com   | 123456   |
 | Secretary | secretary@clinictlemcen.com | 123456   |
+
+## CI/CD (GitHub Actions)
+
+This repository includes a full CI/CD workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
+- CI runs on pull requests and pushes targeting the `Green-Blue` branch.
+- CD (container publish + deploy) runs only on pushes to `Green-Blue`.
+- Docker images are published to GHCR with tags:
+    - `green-blue`
+    - `sha-<commit>`
+
+### Required GitHub Secrets
+
+Add these in your repository settings under **Settings > Secrets and variables > Actions**:
+
+- `SERVER_HOST`: Deployment server host/IP
+- `SERVER_PORT`: SSH port (for example, `22`)
+- `SERVER_USER`: SSH username
+- `SERVER_SSH_KEY`: Private SSH key content used by GitHub Actions
+- `DEPLOY_PATH`: Absolute path on the server where your compose project lives (for example, `/opt/laravel_medical`)
+- `GHCR_USERNAME`: GitHub username that can pull packages from GHCR
+- `GHCR_PAT`: GitHub token with at least `read:packages`
+
+### Server Requirements
+
+- Docker and Docker Compose plugin installed on server.
+- Compose project at `DEPLOY_PATH` must contain an `app` service that pulls from `ghcr.io/<owner>/<repo>:green-blue`.
