@@ -95,7 +95,9 @@ jobs:
 
       - name: Set image tag
         id: vars
-        run: echo "sha_tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "sha_tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "image_name=$(echo ghcr.io/${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -113,8 +115,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:green-blue
-            ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_tag }}
+            ${{ steps.vars.outputs.image_name }}:green-blue
+            ${{ steps.vars.outputs.image_name }}:${{ steps.vars.outputs.sha_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
