@@ -25,15 +25,14 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . /var/www/html
 
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+# Remove stale manifests, install dependencies, and regenerate provider manifest
+RUN mkdir -p bootstrap/cache \
+    && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+    && composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts \
+    && php artisan package:discover --ansi
 
 # Set the correct permissions so Laravel can write to the cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Ensure stale manifest cache files are removed; Laravel will regenerate valid manifests
-RUN mkdir -p bootstrap/cache \
-    && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 
 # Point Apache to Laravel's public/ folder
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
