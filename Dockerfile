@@ -1,6 +1,5 @@
 FROM php:8.2-apache
 
-# Install required tools and PostgreSQL extensions for Laravel
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -14,16 +13,16 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Enable Apache mod_rewrite for Laravel routing
+
 RUN a2enmod rewrite
 
-# Set the working directory in the server
+
 WORKDIR /var/www/html
 
-# Install Composer securely
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy your GitHub code into the server
+
 COPY . /var/www/html
 
 # Install Laravel dependencies
