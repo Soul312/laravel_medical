@@ -18,6 +18,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
+        if (User::query()->exists()) {
+            return;
+        }
+
         // \App\Models\User::factory(10)->create();
 
         // \App\Models\User::factory()->create([
