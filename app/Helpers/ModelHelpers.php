@@ -1,17 +1,28 @@
 <?php
- 
+
 namespace App\Helpers;
+
 use App\Models\Patient;
 use App\Models\User;
- 
-class ModelHelpers {
+
+class ModelHelpers
+{
 
     //  The method inserts a record in the doctor-patient relationship intermediate table t
     // to create the link between a patient and the user (with doctor role).
  
-    public static function attachPatient($doctorID,$patientID)
+    public static function attachPatient(int $doctorID, int $patientID): void
     {
-        $doctor = User::find($doctorID);
-        $doctor->patients()->syncWithoutDetaching($patientID);
+        $patientExists = (new Patient())->newQuery()->whereKey($patientID)->exists();
+        if (! $patientExists) {
+            return;
+        }
+
+        $doctor = (new User())->newQuery()->find($doctorID);
+        if (! $doctor) {
+            return;
+        }
+
+        $doctor->patients()->syncWithoutDetaching([$patientID]);
     }
 }
