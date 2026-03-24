@@ -24,6 +24,7 @@ jobs:
       run: |
         cp .env.example .env
         php artisan key:generate
+        mkdir -p tests/Unit
 
     - name: Run Tests
       # This generates your "Taux d'échec des déploiements" metric. If tests fail, the pipeline stops here.
