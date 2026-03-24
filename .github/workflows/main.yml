@@ -36,9 +36,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Trigger Render Deployment
-      if: ${{ secrets.RENDER_DEPLOY_HOOK != '' }}
-      run: curl --fail-with-body -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
-
-    - name: Skip Deploy (Missing Hook)
-      if: ${{ secrets.RENDER_DEPLOY_HOOK == '' }}
-      run: echo "RENDER_DEPLOY_HOOK is not configured. Skipping deploy step."
+      run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
