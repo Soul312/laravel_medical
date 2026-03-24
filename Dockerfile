@@ -31,9 +31,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-di
 # Set the correct permissions so Laravel can write to the cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Create empty cache files so optimize commands can run safely in production containers
+# Ensure stale manifest cache files are removed; Laravel will regenerate valid manifests
 RUN mkdir -p bootstrap/cache \
-    && touch bootstrap/cache/packages.php bootstrap/cache/services.php
+    && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 
 # Point Apache to Laravel's public/ folder
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
