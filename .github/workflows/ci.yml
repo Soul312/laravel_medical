@@ -191,9 +191,10 @@ jobs:
 
       - name: Verify app is reachable via Traefik
         run: |
-          echo "Verifying app on http://127.0.0.1 (Traefik port 80)..."
+          TRAEFIK_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' laravel_medical_traefik)
+          echo "Verifying app on http://${TRAEFIK_IP} (Traefik IP)..."
           for i in $(seq 1 10); do
-            if curl -I -v -s http://127.0.0.1 > /dev/null; then
+            if curl -I -v -s http://${TRAEFIK_IP} > /dev/null; then
               echo "App is up and reachable via Traefik!"
               exit 0
             fi
