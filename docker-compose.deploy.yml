@@ -23,6 +23,10 @@ services:
     ports:
       - "8000:8000"
     environment:
+      APP_ENV: production
+      APP_DEBUG: true
+      APP_KEY: base64:BOTA80AV+7kjFcI31G6a8CJaluUXiFeM6YeQfw/JNWw=
+      APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: 3306
