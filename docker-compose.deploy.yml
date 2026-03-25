@@ -1,0 +1,4 @@
+services:
+  app:
+    image: ghcr.io/soul312/laravel_medical:green-blue
+    build: null

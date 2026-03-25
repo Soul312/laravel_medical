@@ -1,0 +1,14 @@
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: laravel_medical_runner
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/Soul312/laravel_medical
+      ACCESS_TOKEN: ${RUNNER_ACCESS_TOKEN}
+      RUNNER_NAME: ${RUNNER_NAME:-class-local-runner}
+      RUNNER_LABELS: green-blue-local
+      RUNNER_WORKDIR: /tmp/runner/work
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace/laravel_medical

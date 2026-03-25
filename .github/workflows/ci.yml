@@ -121,24 +121,22 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to Server
-    runs-on: ubuntu-latest
+    name: Deploy Locally
+    runs-on: [self-hosted, green-blue-local]
     needs: docker-publish
     if: github.event_name == 'push' && github.ref_name == 'Green-Blue'
     environment: production
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
-            set -e
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            cd "${{ secrets.DEPLOY_PATH }}"
-            docker compose pull app
-            docker compose up -d app
-            docker image prune -f
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy with Docker Compose
+        shell: bash
+        run: |
+          set -e
+          IMAGE_NAME="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')"
+          echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+          docker compose -f docker-compose.yml -f docker-compose.deploy.yml pull app
+          docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d app
+          docker image prune -f
