@@ -164,18 +164,18 @@ jobs:
           # Start the new slot
           docker compose -f docker-compose.deploy.yml --profile ${NEW_SLOT} up -d
 
-          # Wait for the new slot to become healthy (max 90s)
+          # Wait for the new slot to become healthy (max 180s)
           echo "Waiting for app-${NEW_SLOT} to become healthy..."
-          for i in $(seq 1 18); do
+          for i in $(seq 1 36); do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' laravel_medical_app_${NEW_SLOT} 2>/dev/null || echo "missing")
-            echo "  Health: ${STATUS} (attempt ${i}/18)"
+            echo "  Health: ${STATUS} (attempt ${i}/36)"
             if [ "${STATUS}" = "healthy" ]; then
               echo "app-${NEW_SLOT} is healthy — Traefik will route to it."
               break
             fi
-            if [ "${i}" -eq 18 ]; then
+            if [ "${i}" -eq 36 ]; then
               echo "Timeout waiting for app-${NEW_SLOT} to become healthy!"
-              docker compose -f docker-compose.deploy.yml logs app-${NEW_SLOT}
+              docker compose -f docker-compose.deploy.yml logs --tail 50 app-${NEW_SLOT}
               exit 1
             fi
             sleep 5
