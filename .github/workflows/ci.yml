@@ -125,7 +125,6 @@ jobs:
     runs-on: [self-hosted, green-blue-local]
     needs: docker-publish
     if: github.event_name == 'push' && github.ref_name == 'Green-Blue'
-    environment: production
     env:
       APP_KEY: ${{ secrets.APP_KEY }}
 
