@@ -1,28 +1,13 @@
 services:
-  # ── Docker Socket Proxy (for Windows Docker Desktop compatibility) ─────────────
-  socket-proxy:
-    image: tecnativa/docker-socket-proxy
-    container_name: laravel_medical_socket_proxy
-    restart: unless-stopped
-    environment:
-      - CONTAINERS=1
-      - EVENTS=1
-      - PING=1
-      - VERSION=1
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   # ── Reverse proxy ────────────────────────────────────────────────────────────
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.11
     container_name: laravel_medical_traefik
     restart: unless-stopped
-    depends_on:
-      - socket-proxy
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
-      - "--providers.docker.endpoint=tcp://socket-proxy:2375"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.watch=true"
       - "--entrypoints.web.address=:80"
@@ -30,6 +15,8 @@ services:
     ports:
       - "80:80"       # app traffic
       - "9090:8080"   # Traefik dashboard → http://localhost:9090
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   # ── Database ─────────────────────────────────────────────────────────────────
   db:
