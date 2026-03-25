@@ -158,6 +158,9 @@ jobs:
           fi
           echo "Active slot: ${OLD_SLOT} → deploying to: ${NEW_SLOT}"
 
+          # Create an .env file so docker-compose correctly substitutes the ${APP_KEY} variable
+          echo "APP_KEY=${APP_KEY}" > .env
+          
           # Ensure Traefik and DB are running (idempotent)
           docker compose -f docker-compose.deploy.yml up -d traefik db
 
