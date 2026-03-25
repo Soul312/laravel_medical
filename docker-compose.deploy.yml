@@ -5,7 +5,10 @@ services:
     container_name: laravel_medical_socket_proxy
     restart: unless-stopped
     environment:
-      - CONTAINERS=1   # Allow Traefik to read containers
+      - CONTAINERS=1
+      - EVENTS=1
+      - PING=1
+      - VERSION=1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
