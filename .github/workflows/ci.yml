@@ -121,16 +121,33 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to Render
-    runs-on: ubuntu-latest
+    name: Deploy Locally
+    runs-on: [self-hosted, green-blue-local]
     needs: docker-publish
     if: github.event_name == 'push' && github.ref_name == 'Green-Blue'
     environment: production
 
     steps:
-      - name: Trigger Render Deploy
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest image
         run: |
-          curl --request POST \
-            --url 'https://api.render.com/deploy/${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_DEPLOY_KEY }}' \
-            --header 'Content-Type: application/json'
-        continue-on-error: true
+          docker pull ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):green-blue
+
+      - name: Deploy with Docker Compose
+        run: |
+          docker compose -f docker-compose.deploy.yml pull
+          docker compose -f docker-compose.deploy.yml up -d --remove-orphans
+
+      - name: Verify app is running
+        run: |
+          sleep 10
+          curl --fail http://localhost:8000 || (docker compose -f docker-compose.deploy.yml logs && exit 1)

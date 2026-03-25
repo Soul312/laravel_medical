@@ -1,8 +1,28 @@
 services:
+  db:
+    image: mysql:8.0
+    container_name: laravel_medical_runner_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootsecret
+      MYSQL_DATABASE: laravel_medical
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+    volumes:
+      - runner_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ularavel", "-psecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   github-runner:
     image: myoung34/github-runner:latest
     container_name: laravel_medical_runner
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       REPO_URL: https://github.com/Soul312/laravel_medical
       ACCESS_TOKEN: ${RUNNER_ACCESS_TOKEN}
@@ -12,3 +32,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/workspace/laravel_medical
+
+volumes:
+  runner_mysql_data:
