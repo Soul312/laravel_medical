@@ -191,9 +191,9 @@ jobs:
 
       - name: Verify app is reachable via Traefik
         run: |
-          echo "Verifying app on http://localhost (Traefik port 80)..."
+          echo "Verifying app on http://127.0.0.1 (Traefik port 80)..."
           for i in $(seq 1 10); do
-            if curl -sf http://localhost > /dev/null; then
+            if curl -I -v -s http://127.0.0.1 > /dev/null; then
               echo "App is up and reachable via Traefik!"
               exit 0
             fi

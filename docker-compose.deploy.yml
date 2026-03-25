@@ -18,8 +18,8 @@ services:
       - "--entrypoints.web.address=:80"
       - "--log.level=INFO"
     ports:
-      - "80:80"       # app traffic
-      - "9090:8080"   # Traefik dashboard → http://localhost:9090
+      - "0.0.0.0:80:80"       # app traffic
+      - "0.0.0.0:9090:8080"   # Traefik dashboard → http://localhost:9090
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
