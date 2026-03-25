@@ -145,7 +145,7 @@ jobs:
       - name: Deploy with Docker Compose
         run: |
           docker compose -f docker-compose.deploy.yml pull
-          docker compose -f docker-compose.deploy.yml up -d --remove-orphans
+          docker compose -f docker-compose.deploy.yml up -d
 
       - name: Verify app is running
         run: |
