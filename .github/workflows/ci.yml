@@ -149,5 +149,14 @@ jobs:
 
       - name: Verify app is running
         run: |
-          sleep 10
-          curl --fail http://localhost:8000 || (docker compose -f docker-compose.deploy.yml logs && exit 1)
+          echo "Waiting for app to start..."
+          for i in {1..15}; do
+            if docker exec laravel_medical_app curl -sSf http://127.0.0.1:8000 > /dev/null; then
+              echo "App is up!"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "App failed to start in time!"
+          docker compose -f docker-compose.deploy.yml logs
+          exit 1
