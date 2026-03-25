@@ -145,6 +145,8 @@ jobs:
           docker pull ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):green-blue
 
       - name: Blue-Green slot switch
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
         run: |
           # Determine which slot is currently active
           if docker ps --filter "name=laravel_medical_app_blue" --filter "status=running" -q | grep -q .; then
