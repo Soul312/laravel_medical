@@ -191,14 +191,24 @@ jobs:
 
       - name: Verify app is reachable via Traefik
         run: |
-          echo "Verifying app on http://laravel_medical_traefik (Traefik port 80)..."
+          TRAEFIK_NETWORK=$(docker inspect -f '{{range $k, $_ := .NetworkSettings.Networks}}{{printf "%s\n" $k}}{{end}}' laravel_medical_traefik | head -n1)
+          echo "Verifying app through Traefik on network: ${TRAEFIK_NETWORK}"
+
           for i in $(seq 1 10); do
-            if curl -sf http://laravel_medical_traefik > /dev/null; then
+            if docker run --rm --network "${TRAEFIK_NETWORK}" curlimages/curl:8.7.1 -fsS http://laravel_medical_traefik > /dev/null; then
               echo "App is up and reachable via Traefik!"
               exit 0
             fi
             sleep 3
           done
+
           echo "App not reachable after 30s!"
+          echo "=== Traefik network attachments ==="
+          docker inspect -f '{{json .NetworkSettings.Networks}}' laravel_medical_traefik
+          echo "=== App container network attachments ==="
+          docker inspect -f '{{json .NetworkSettings.Networks}}' laravel_medical_app_blue || true
+          docker inspect -f '{{json .NetworkSettings.Networks}}' laravel_medical_app_green || true
+          echo "=== Traefik service errors ==="
+          docker compose -f docker-compose.deploy.yml logs --tail 150 traefik
           docker compose -f docker-compose.deploy.yml logs
           exit 1
