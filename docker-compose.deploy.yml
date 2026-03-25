@@ -1,4 +1,25 @@
 services:
+
+  # ── Reverse proxy ────────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v2.10
+    container_name: laravel_medical_traefik
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux CI compatibility
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=tcp://host.docker.internal:2375"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"       # app traffic
+      - "9090:8080"   # Traefik dashboard → http://localhost:9090
+
+  # ── Database ─────────────────────────────────────────────────────────────────
   db:
     image: mysql:8.0
     container_name: laravel_medical_db
@@ -16,17 +37,17 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
+  # ── App — Blue slot ───────────────────────────────────────────────────────────
+  app-blue:
     image: ghcr.io/soul312/laravel_medical:green-blue
-    container_name: laravel_medical_app
+    container_name: laravel_medical_app_blue
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    profiles: [blue]
     environment:
       APP_ENV: production
       APP_DEBUG: true
-      APP_KEY: base64:BOTA80AV+7kjFcI31G6a8CJaluUXiFeM6YeQfw/JNWw=
-      APP_URL: http://localhost:8000
+      APP_KEY: ${APP_KEY}
+      APP_URL: http://localhost
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: 3306
@@ -36,6 +57,53 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.laravel.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.laravel.entrypoints=web"
+      - "traefik.http.services.laravel-app.loadbalancer.server.port=8000"
+      - "traefik.http.services.laravel-app.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.laravel-app.loadbalancer.healthcheck.interval=10s"
+
+  # ── App — Green slot ──────────────────────────────────────────────────────────
+  app-green:
+    image: ghcr.io/soul312/laravel_medical:green-blue
+    container_name: laravel_medical_app_green
+    restart: unless-stopped
+    profiles: [green]
+    environment:
+      APP_ENV: production
+      APP_DEBUG: true
+      APP_KEY: ${APP_KEY}
+      APP_URL: http://localhost
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: laravel_medical
+      DB_USERNAME: laravel
+      DB_PASSWORD: secret
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.laravel.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.laravel.entrypoints=web"
+      - "traefik.http.services.laravel-app.loadbalancer.server.port=8000"
+      - "traefik.http.services.laravel-app.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.laravel-app.loadbalancer.healthcheck.interval=10s"
 
 volumes:
   mysql_data:

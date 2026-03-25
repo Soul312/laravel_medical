@@ -121,11 +121,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy Locally
+    name: Deploy Locally (Blue-Green)
     runs-on: [self-hosted, green-blue-local]
     needs: docker-publish
     if: github.event_name == 'push' && github.ref_name == 'Green-Blue'
     environment: production
+    env:
+      APP_KEY: ${{ secrets.APP_KEY }}
 
     steps:
       - name: Checkout
@@ -142,21 +144,57 @@ jobs:
         run: |
           docker pull ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):green-blue
 
-      - name: Deploy with Docker Compose
+      - name: Blue-Green slot switch
         run: |
-          docker compose -f docker-compose.deploy.yml pull
-          docker compose -f docker-compose.deploy.yml up -d
+          # Determine which slot is currently active
+          if docker ps --filter "name=laravel_medical_app_blue" --filter "status=running" -q | grep -q .; then
+            NEW_SLOT=green
+            OLD_SLOT=blue
+          else
+            NEW_SLOT=blue
+            OLD_SLOT=green
+          fi
+          echo "Active slot: ${OLD_SLOT} → deploying to: ${NEW_SLOT}"
 
-      - name: Verify app is running
+          # Ensure Traefik and DB are running (idempotent)
+          docker compose -f docker-compose.deploy.yml up -d traefik db
+
+          # Start the new slot
+          docker compose -f docker-compose.deploy.yml --profile ${NEW_SLOT} up -d
+
+          # Wait for the new slot to become healthy (max 90s)
+          echo "Waiting for app-${NEW_SLOT} to become healthy..."
+          for i in $(seq 1 18); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' laravel_medical_app_${NEW_SLOT} 2>/dev/null || echo "missing")
+            echo "  Health: ${STATUS} (attempt ${i}/18)"
+            if [ "${STATUS}" = "healthy" ]; then
+              echo "app-${NEW_SLOT} is healthy — Traefik will route to it."
+              break
+            fi
+            if [ "${i}" -eq 18 ]; then
+              echo "Timeout waiting for app-${NEW_SLOT} to become healthy!"
+              docker compose -f docker-compose.deploy.yml logs app-${NEW_SLOT}
+              exit 1
+            fi
+            sleep 5
+          done
+
+          # Stop the old slot (Traefik will automatically only route to the healthy new slot)
+          if docker ps --filter "name=laravel_medical_app_${OLD_SLOT}" -q | grep -q .; then
+            echo "Stopping old slot: app-${OLD_SLOT}"
+            docker compose -f docker-compose.deploy.yml --profile ${OLD_SLOT} stop
+          fi
+
+      - name: Verify app is reachable via Traefik
         run: |
-          echo "Waiting for app to start..."
-          for i in {1..15}; do
-            if docker exec laravel_medical_app curl -sSf http://127.0.0.1:8000 > /dev/null; then
-              echo "App is up!"
+          echo "Verifying app on http://localhost (Traefik port 80)..."
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost > /dev/null; then
+              echo "App is up and reachable via Traefik!"
               exit 0
             fi
             sleep 3
           done
-          echo "App failed to start in time!"
+          echo "App not reachable after 30s!"
           docker compose -f docker-compose.deploy.yml logs
           exit 1

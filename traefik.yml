@@ -1,0 +1,18 @@
+# Traefik v2 static configuration
+
+api:
+  dashboard: true
+  insecure: true   # dashboard on :9090 (local/dev only — disable in production)
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false   # only containers with traefik.enable=true are routed
+    watch: true
+
+log:
+  level: INFO
