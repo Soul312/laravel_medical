@@ -75,6 +75,7 @@ services:
       start_period: 30s
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=laravel_medical_app-network"
       - "traefik.http.routers.laravel-blue.rule=PathPrefix(`/`)"
       - "traefik.http.routers.laravel-blue.entrypoints=web"
       - "traefik.http.services.laravel-blue.loadbalancer.server.port=8000"
@@ -111,6 +112,7 @@ services:
       start_period: 30s
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=laravel_medical_app-network"
       - "traefik.http.routers.laravel-green.rule=PathPrefix(`/`)"
       - "traefik.http.routers.laravel-green.entrypoints=web"
       - "traefik.http.services.laravel-green.loadbalancer.server.port=8000"
