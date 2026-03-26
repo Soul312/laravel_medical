@@ -15,6 +15,28 @@ services:
       - '--storage.tsdb.retention.time=15d'
     networks:
       - monitoring_network
+      - laravel_network
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command:
+      - '--nginx.scrape-uri=http://laravel_medical_nginx:80/stub_status'
+    ports:
+      - "9113:9113"
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring_network
+      - laravel_network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring_network
 
   grafana:
     image: grafana/grafana:latest
@@ -45,12 +67,12 @@ services:
     image: glitchtip/glitchtip:latest
     container_name: glitchtip
     ports:
-      - "8080:8080"
+      - "8085:8080"
     environment:
       DATABASE_URL: postgres://postgres:postgres@glitchtip-db:5432/glitchtip
       SECRET_KEY: change-me-to-a-random-secret-key
       PORT: 8080
-      GLITCHTIP_DOMAIN: http://localhost:8080
+      GLITCHTIP_DOMAIN: http://localhost:8085
     depends_on:
       - glitchtip-db
     networks:
@@ -77,3 +99,6 @@ volumes:
 networks:
   monitoring_network:
     driver: bridge
+  laravel_network:
+    external: true
+    name: laravel_medical_laravel_network
