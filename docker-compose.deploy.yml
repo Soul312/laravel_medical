@@ -67,7 +67,7 @@ services:
       start_period: 30s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.laravel-blue.rule=Host(`142.93.231.67`)"
+      - "traefik.http.routers.laravel-blue.rule=Host(`142.93.231.67`) || Host(`traefik`)"
       - "traefik.http.routers.laravel-blue.entrypoints=web"
       - "traefik.http.services.laravel-blue.loadbalancer.server.port=8000"
       - "traefik.http.services.laravel-blue.loadbalancer.healthcheck.path=/"
@@ -105,7 +105,7 @@ services:
       start_period: 30s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.laravel-green.rule=Host(`142.93.231.67`)"
+      - "traefik.http.routers.laravel-green.rule=Host(`142.93.231.67`) || Host(`traefik`)"
       - "traefik.http.routers.laravel-green.entrypoints=web"
       - "traefik.http.services.laravel-green.loadbalancer.server.port=8000"
       - "traefik.http.services.laravel-green.loadbalancer.healthcheck.path=/"
