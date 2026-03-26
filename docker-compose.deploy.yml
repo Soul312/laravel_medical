@@ -53,6 +53,10 @@ services:
       DB_DATABASE: laravel_medical
       DB_USERNAME: laravel
       DB_PASSWORD: secret
+      SENTRY_LARAVEL_DSN: ${SENTRY_LARAVEL_DSN}
+      SENTRY_ENVIRONMENT: production
+      SENTRY_RELEASE: ${GITHUB_SHA}
+      SENTRY_TRACES_SAMPLE_RATE: 1.0
     depends_on:
       db:
         condition: service_healthy
@@ -87,6 +91,10 @@ services:
       DB_DATABASE: laravel_medical
       DB_USERNAME: laravel
       DB_PASSWORD: secret
+      SENTRY_LARAVEL_DSN: ${SENTRY_LARAVEL_DSN}
+      SENTRY_ENVIRONMENT: production
+      SENTRY_RELEASE: ${GITHUB_SHA}
+      SENTRY_TRACES_SAMPLE_RATE: 1.0
     depends_on:
       db:
         condition: service_healthy
@@ -157,6 +165,8 @@ services:
     profiles: [monitoring]
     volumes:
       - uptime_kuma_data:/app/data
+    ports:
+      - "3001:3001"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.uptime-kuma.rule=PathPrefix(`/uptime`)"

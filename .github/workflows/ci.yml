@@ -146,6 +146,9 @@ jobs:
       - name: Blue-Green slot switch
         env:
           APP_KEY: ${{ secrets.APP_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           # Determine which slot is currently active
           if docker ps --filter "name=laravel_medical_app_blue" --filter "status=running" -q | grep -q .; then
@@ -223,4 +226,15 @@ jobs:
           echo "  → Prometheus : http://localhost:9091"
           echo "  → Grafana    : http://localhost/grafana"
           echo "  → Uptime Kuma: http://localhost/uptime"
+
+      - name: Sentry Release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${{ github.sha }}
+
 
