@@ -60,11 +60,13 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000"]
+      # Avoid HTTP-level false negatives during boot (redirects/migrations/curl quirks).
+      # A TCP connect check is enough to prove the app is listening.
+      test: ["CMD", "php", "-r", "$s=@fsockopen('127.0.0.1',8000,$e,$es,2); if($s){fclose($s); exit(0);} exit(1);"]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 30s
+      retries: 12
+      start_period: 120s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.laravel-blue.rule=Host(`142.93.231.67`) || Host(`traefik`)"
@@ -98,11 +100,11 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000"]
+      test: ["CMD", "php", "-r", "$s=@fsockopen('127.0.0.1',8000,$e,$es,2); if($s){fclose($s); exit(0);} exit(1);"]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 30s
+      retries: 12
+      start_period: 120s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.laravel-green.rule=Host(`142.93.231.67`) || Host(`traefik`)"

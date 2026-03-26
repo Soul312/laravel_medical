@@ -27,11 +27,20 @@ services:
       REPO_URL: https://github.com/Soul312/laravel_medical
       ACCESS_TOKEN: ${RUNNER_ACCESS_TOKEN}
       RUNNER_NAME: ${RUNNER_NAME:-class-local-runner}
-      RUNNER_LABELS: green-blue-local
+      # GitHub job requests: `runs-on: [self-hosted, green-blue-local]`
+      # Ensure both labels are present on the runner.
+      LABELS: self-hosted,green-blue-local
+      RUNNER_LABELS: self-hosted,green-blue-local
+      # Persist runner registration/config so the container doesn't keep re-registering.
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /runner/data
       RUNNER_WORKDIR: /tmp/runner/work
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/workspace/laravel_medical
+      - runner_tmp:/tmp/runner
+      - runner_config:/runner/data
 
 volumes:
   runner_mysql_data:
+  runner_tmp:
+  runner_config:
