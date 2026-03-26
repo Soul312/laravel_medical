@@ -217,6 +217,15 @@ jobs:
 
       - name: Start monitoring stack
         run: |
+          # Docker may have auto-created prometheus.yml as a directory on a previous
+          # failed run (when the file didn't exist yet). Remove and restore it.
+          if [ -d prometheus.yml ]; then
+            echo "WARNING: prometheus.yml is a directory (stale Docker artifact). Removing..."
+            rm -rf prometheus.yml
+          fi
+          # Always restore from git to ensure it's a valid file
+          git checkout HEAD -- prometheus.yml
+
           echo "Starting monitoring stack (Prometheus, Grafana, Uptime Kuma)..."
           docker compose -f docker-compose.deploy.yml --profile monitoring up -d
           echo "Monitoring stack started."
