@@ -106,12 +106,13 @@ services:
 
   # ── Prometheus ───────────────────────────────────────────────────────────────
   prometheus:
-    image: prom/prometheus:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.prometheus
     container_name: laravel_medical_prometheus
     restart: unless-stopped
     profiles: [monitoring]
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
