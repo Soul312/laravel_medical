@@ -186,7 +186,7 @@ jobs:
           # Stop the old slot (Traefik will automatically only route to the healthy new slot)
           if docker ps --filter "name=laravel_medical_app_${OLD_SLOT}" -q | grep -q .; then
             echo "Stopping old slot: app-${OLD_SLOT}"
-            docker compose -f docker-compose.deploy.yml --profile ${OLD_SLOT} stop
+            docker compose -f docker-compose.deploy.yml stop app-${OLD_SLOT}
           fi
 
       - name: Verify app is reachable via Traefik
