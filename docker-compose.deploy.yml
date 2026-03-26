@@ -60,9 +60,10 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      # Avoid HTTP-level false negatives during boot (redirects/migrations/curl quirks).
-      # A TCP connect check is enough to prove the app is listening.
-      test: ["CMD", "php", "-r", "$s=@fsockopen('127.0.0.1',8000,$e,$es,2); if($s){fclose($s); exit(0);} exit(1);"]
+      # Resilient VPS check: verify the process is LISTENing on port 8000.
+      # Avoids curl HTTP-level failures and avoids Compose `$var` substitution issues.
+      # Uses bash /dev/tcp (available in Debian-based images when bash exists).
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -100,7 +101,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "php", "-r", "$s=@fsockopen('127.0.0.1',8000,$e,$es,2); if($s){fclose($s); exit(0);} exit(1);"]
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
       interval: 10s
       timeout: 5s
       retries: 12
