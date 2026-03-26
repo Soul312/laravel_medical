@@ -214,3 +214,12 @@ jobs:
           docker compose -f docker-compose.deploy.yml logs --tail 150 traefik
           docker compose -f docker-compose.deploy.yml logs
           exit 1
+
+      - name: Start monitoring stack
+        run: |
+          echo "Starting monitoring stack (Prometheus, Grafana, Uptime Kuma)..."
+          docker compose -f docker-compose.deploy.yml --profile monitoring up -d
+          echo "Monitoring stack started."
+          echo "  → Prometheus : http://localhost:9091"
+          echo "  → Grafana    : http://localhost/grafana"
+          echo "  → Uptime Kuma: http://localhost/uptime"
