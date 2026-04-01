@@ -48,8 +48,6 @@ class User extends Authenticatable
         'role'=>UserRoles::class,
     ];
 
-    protected $broken = ;
-
 
     public function appointments()
     {
