@@ -30,7 +30,7 @@ Route::get(
 
 Route::middleware(['auth', 'user-role:ADMIN'])->group(
     function () {
-        Route::resource('users', UsersController::class);
+        Route::resource('users', UsersController::class)
     }
 );
 
