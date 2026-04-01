@@ -27,7 +27,7 @@ jobs:
         mkdir -p tests/Unit
 
     - name: Run Tests
-      # This generates your "Taux d'échec des déploiements" metric. If tests fail, the pipeline stops here.
+   
       run: php artisan test
 
   # L'étape de Continuous Deployment (CD)
