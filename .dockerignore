@@ -1,0 +1,22 @@
+.git
+.github
+node_modules
+vendor
+
+# Laravel runtime / generated logs
+storage/logs
+storage/debugbar
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+
+# Vite build output (re-generated during Docker build)
+public/build
+public/hot
+
+# Secrets / env
+.env
+.env.*
+
+# Misc
+*.log

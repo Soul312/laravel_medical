@@ -1,0 +1,244 @@
+name: CI-CD
+
+on:
+  pull_request:
+    branches:
+      - Green-Blue
+  push:
+    branches:
+      - Green-Blue
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  php-tests:
+    name: PHP Tests (Laravel)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, pdo_sqlite, bcmath, dom, fileinfo
+          tools: composer:v2
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-8.1-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-8.1-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare Laravel app key
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run test suite
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: php artisan test --env=testing
+
+  frontend-build:
+    name: Frontend Build (Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build assets
+        run: npm run build
+
+  docker-publish:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs:
+      - php-tests
+      - frontend-build
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name == 'push' && github.ref_name == 'Green-Blue'
+
+    outputs:
+      image_tag: ${{ steps.vars.outputs.sha_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: vars
+        run: |
+          echo "sha_tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "image_name=$(echo ghcr.io/${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.vars.outputs.image_name }}:green-blue
+            ${{ steps.vars.outputs.image_name }}:${{ steps.vars.outputs.sha_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy Locally (Blue-Green)
+    runs-on: [self-hosted, green-blue-local]
+    needs: docker-publish
+    if: github.event_name == 'push' && github.ref_name == 'Green-Blue'
+    env:
+      APP_KEY: ${{ secrets.APP_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest image
+        run: |
+          docker pull ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):green-blue
+
+      - name: Blue-Green slot switch
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          # Determine which slot is currently active
+          if docker ps --filter "name=laravel_medical_app_blue" --filter "status=running" -q | grep -q .; then
+            NEW_SLOT=green
+            OLD_SLOT=blue
+          else
+            NEW_SLOT=blue
+            OLD_SLOT=green
+          fi
+          echo "Active slot: ${OLD_SLOT} → deploying to: ${NEW_SLOT}"
+
+          # Create an .env file so docker-compose correctly substitutes the ${APP_KEY} variable
+          echo "APP_KEY=${APP_KEY}" > .env
+          
+          # Ensure Traefik and DB are running (idempotent)
+          docker compose -f docker-compose.deploy.yml up -d traefik db
+
+          # Start the new slot
+          docker compose -f docker-compose.deploy.yml --profile ${NEW_SLOT} up -d
+
+          # Wait for the new slot to become healthy (max 180s)
+          echo "Waiting for app-${NEW_SLOT} to become healthy..."
+          for i in $(seq 1 36); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' laravel_medical_app_${NEW_SLOT} 2>/dev/null || echo "missing")
+            echo "  Health: ${STATUS} (attempt ${i}/36)"
+            if [ "${STATUS}" = "healthy" ]; then
+              echo "app-${NEW_SLOT} is healthy — Traefik will route to it."
+              break
+            fi
+            if [ "${i}" -eq 36 ]; then
+              echo "Timeout waiting for app-${NEW_SLOT} to become healthy!"
+              docker compose -f docker-compose.deploy.yml logs --tail 50 app-${NEW_SLOT}
+              exit 1
+            fi
+            sleep 5
+          done
+
+          # Stop the old slot (Traefik will automatically only route to the healthy new slot)
+          if docker ps --filter "name=laravel_medical_app_${OLD_SLOT}" -q | grep -q .; then
+            echo "Stopping old slot: app-${OLD_SLOT}"
+            docker compose -f docker-compose.deploy.yml stop app-${OLD_SLOT}
+          fi
+
+      - name: Verify app is reachable via Traefik
+        run: |
+          TRAEFIK_NETWORK=$(docker inspect -f '{{range $k, $_ := .NetworkSettings.Networks}}{{printf "%s\n" $k}}{{end}}' laravel_medical_traefik | head -n1)
+          echo "Verifying app through Traefik service DNS on network: ${TRAEFIK_NETWORK}"
+
+          for i in $(seq 1 10); do
+            if docker run --rm --network "${TRAEFIK_NETWORK}" curlimages/curl:8.7.1 -fsS http://traefik > /dev/null; then
+              echo "App is up and reachable via Traefik!"
+              exit 0
+            fi
+            sleep 3
+          done
+
+          echo "App not reachable after 30s!"
+          echo "=== Listening ports on runner ==="
+          docker ps --format 'table {{.Names}}\t{{.Ports}}' | (head -n1; grep -E 'laravel_medical_traefik|:80|:9090' || true)
+          echo "=== Traefik network attachments ==="
+          docker inspect -f '{{json .NetworkSettings.Networks}}' laravel_medical_traefik
+          echo "=== App container network attachments ==="
+          docker inspect -f '{{json .NetworkSettings.Networks}}' laravel_medical_app_blue || true
+          docker inspect -f '{{json .NetworkSettings.Networks}}' laravel_medical_app_green || true
+          echo "=== Traefik service errors ==="
+          docker compose -f docker-compose.deploy.yml logs --tail 150 traefik
+          docker compose -f docker-compose.deploy.yml logs
+          exit 1
+
+      - name: Start monitoring stack
+        run: |
+          echo "Starting monitoring stack (Prometheus, Grafana, Uptime Kuma)..."
+          # BuildKit cancellations on 4GB VPSes are commonly caused by OOM during build context transfer/build.
+          # Prune build cache first to reduce memory/disk pressure.
+          docker builder prune -af || true
+          docker compose -f docker-compose.deploy.yml --profile monitoring up -d --build prometheus grafana uptime-kuma
+          echo "Monitoring stack started."
+          echo "  → Prometheus : http://localhost:9091"
+          echo "  → Grafana    : http://localhost/grafana"
+          echo "  → Uptime Kuma: http://localhost/uptime"
+
+      - name: Sentry Release
+        uses: getsentry/action-release@v1
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${{ github.sha }}
+
+

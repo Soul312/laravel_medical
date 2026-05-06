@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape Laravel app metrics (blue slot)
+  - job_name: 'laravel-blue'
+    static_configs:
+      - targets: ['laravel_medical_app_blue:8000']
+    metrics_path: '/metrics'
+
+  # Scrape Laravel app metrics (green slot)
+  - job_name: 'laravel-green'
+    static_configs:
+      - targets: ['laravel_medical_app_green:8000']
+    metrics_path: '/metrics'
+
+  # Scrape Traefik metrics
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['laravel_medical_traefik:8080']
+    metrics_path: '/metrics'

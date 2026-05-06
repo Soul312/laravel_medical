@@ -25,68 +25,72 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
 
-        // insert users 
+        // insert users — firstOrCreate keeps this idempotent across re-deploys
         $users = [
             [
-                'name' => 'Doctor',
+                'name'     => 'Doctor',
                 'lastname' => 'Doctor_lastname',
                 'username' => 'Doctor_username',
-                'email' => 'doctor@clinictlemcen.com',
-                'role' => 0,
+                'email'    => 'doctor@clinictlemcen.com',
+                'role'     => 0,
                 'password' => Hash::make('123456'),
             ],
             [
-                'name' => 'Doctor2',
+                'name'     => 'Doctor2',
                 'lastname' => 'Doctor2_lastname',
                 'username' => 'Doctor2_username',
-                'email' => 'doctor2@clinictlemcen.com',
-                'role' => 0,
+                'email'    => 'doctor2@clinictlemcen.com',
+                'role'     => 0,
                 'password' => Hash::make('123456'),
             ],
             [
-                'name' => 'Secretary',
+                'name'     => 'Secretary',
                 'lastname' => 'Secretary_lastname',
                 'username' => 'Secretary_username',
-                'email' => 'secretary@clinictlemcen.com',
-                'role' => 1,
+                'email'    => 'secretary@clinictlemcen.com',
+                'role'     => 1,
                 'password' => Hash::make('123456'),
             ],
             [
-                'name' => 'Admin',
+                'name'     => 'Admin',
                 'lastname' => 'Admin_lastname',
                 'username' => 'Admin_username',
-                'email' => 'admin@clinictlemcen.com',
-                'role' => 2,
+                'email'    => 'admin@clinictlemcen.com',
+                'role'     => 2,
                 'password' => Hash::make('123456'),
             ],
-
         ];
-        foreach ($users as $key => $user) {
-            User::create($user);
+
+        foreach ($users as $userData) {
+            User::firstOrCreate(
+                ['email' => $userData['email']],   // lookup key
+                $userData                           // values to set on first create
+            );
         }
 
-        // insert patient 
-        \App\Models\Patient::factory(5)->create();
+        // Only seed relational / factory data when the DB is truly fresh
+        if (\App\Models\Patient::count() === 0) {
+            // insert patients
+            \App\Models\Patient::factory(5)->create();
 
-        // populate  doctor_patient table
-        $data = [
-            ['patient_id' => 1, 'user_id' => fake()->numberBetween(1, 2)],
-            ['patient_id' => 2, 'user_id' => fake()->numberBetween(1, 2)],
-            ['patient_id' => 3, 'user_id' => fake()->numberBetween(1, 2)],
-            ['patient_id' => 4, 'user_id' => fake()->numberBetween(1, 2)],
-            ['patient_id' => 5, 'user_id' => fake()->numberBetween(1, 2)],
-        ];
-        DB::table('doctor_patient')->insert($data);
+            // populate doctor_patient table
+            $data = [
+                ['patient_id' => 1, 'user_id' => fake()->numberBetween(1, 2)],
+                ['patient_id' => 2, 'user_id' => fake()->numberBetween(1, 2)],
+                ['patient_id' => 3, 'user_id' => fake()->numberBetween(1, 2)],
+                ['patient_id' => 4, 'user_id' => fake()->numberBetween(1, 2)],
+                ['patient_id' => 5, 'user_id' => fake()->numberBetween(1, 2)],
+            ];
+            DB::table('doctor_patient')->insert($data);
 
-        // insert Appointments 
-        \App\Models\Appointment::factory(5)->create();
+            // insert Appointments
+            \App\Models\Appointment::factory(5)->create();
 
-        // insert Prescriptions 
-        \App\Models\Prescription::factory(5)->create();
-        
-        // insert OrientationLetters 
-        \App\Models\OrientationLetter::factory(5)->create();
+            // insert Prescriptions
+            \App\Models\Prescription::factory(5)->create();
 
-
+            // insert OrientationLetters
+            \App\Models\OrientationLetter::factory(5)->create();
+        }
     }
 }

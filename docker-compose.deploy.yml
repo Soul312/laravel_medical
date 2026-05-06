@@ -1,0 +1,175 @@
+services:
+
+  # ── Reverse proxy ────────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v2.11
+    container_name: laravel_medical_traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--metrics.prometheus=true"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"       # app traffic
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  # ── Database ─────────────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: laravel_medical_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootsecret
+      MYSQL_DATABASE: laravel_medical
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ularavel", "-psecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── App — Blue slot ───────────────────────────────────────────────────────────
+  app-blue:
+    image: ghcr.io/soul312/laravel_medical:green-blue
+    container_name: laravel_medical_app_blue
+    restart: unless-stopped
+    profiles: [blue]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_KEY: ${APP_KEY}
+      APP_URL: http://142.93.231.67
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: laravel_medical
+      DB_USERNAME: laravel
+      DB_PASSWORD: secret
+      SENTRY_LARAVEL_DSN: ${SENTRY_LARAVEL_DSN}
+      SENTRY_ENVIRONMENT: production
+      SENTRY_RELEASE: ${GITHUB_SHA}
+      SENTRY_TRACES_SAMPLE_RATE: 1.0
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Resilient VPS check: verify the process is LISTENing on port 8000.
+      # Avoids curl HTTP-level failures and avoids Compose `$var` substitution issues.
+      # Uses bash /dev/tcp (available in Debian-based images when bash exists).
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.laravel-blue.rule=Host(`142.93.231.67`) || Host(`traefik`)"
+      - "traefik.http.routers.laravel-blue.entrypoints=web"
+      - "traefik.http.services.laravel-blue.loadbalancer.server.port=8000"
+      - "traefik.http.services.laravel-blue.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.laravel-blue.loadbalancer.healthcheck.interval=10s"
+
+  # ── App — Green slot ──────────────────────────────────────────────────────────
+  app-green:
+    image: ghcr.io/soul312/laravel_medical:green-blue
+    container_name: laravel_medical_app_green
+    restart: unless-stopped
+    profiles: [green]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_KEY: ${APP_KEY}
+      APP_URL: http://142.93.231.67
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: laravel_medical
+      DB_USERNAME: laravel
+      DB_PASSWORD: secret
+      SENTRY_LARAVEL_DSN: ${SENTRY_LARAVEL_DSN}
+      SENTRY_ENVIRONMENT: production
+      SENTRY_RELEASE: ${GITHUB_SHA}
+      SENTRY_TRACES_SAMPLE_RATE: 1.0
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.laravel-green.rule=Host(`142.93.231.67`) || Host(`traefik`)"
+      - "traefik.http.routers.laravel-green.entrypoints=web"
+      - "traefik.http.services.laravel-green.loadbalancer.server.port=8000"
+      - "traefik.http.services.laravel-green.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.laravel-green.loadbalancer.healthcheck.interval=10s"
+
+  # ── Prometheus ───────────────────────────────────────────────────────────────
+  prometheus:
+    build:
+      context: .
+      dockerfile: Dockerfile.prometheus
+    container_name: laravel_medical_prometheus
+    restart: unless-stopped
+    profiles: [monitoring]
+    volumes:
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: laravel_medical_grafana
+    restart: unless-stopped
+    profiles: [monitoring]
+    environment:
+      GF_SERVER_ROOT_URL: http://grafana.142.93.231.67.nip.io/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.142.93.231.67.nip.io`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  # ── Uptime Kuma ───────────────────────────────────────────────────────────
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: laravel_medical_uptime_kuma
+    restart: unless-stopped
+    profiles: [monitoring]
+    volumes:
+      - uptime_kuma_data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`uptime.142.93.231.67.nip.io`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=web"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+
+volumes:
+  mysql_data:
+  prometheus_data:
+  grafana_data:
+  uptime_kuma_data:
