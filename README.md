@@ -1,6 +1,6 @@
 # laravel-medical
 
-laravel-medical is a full-stack Laravel application for managing a medical clinic. It was originally an application project, then extended with a DevOps layer for containerization, blue/green deployment, reverse proxying, and monitoring.
+laravel-medical is a full-stack Laravel application for managing a medical clinic. It was originally an application project made by user abdelghanyMh, then extended by Soul312 with a DevOps layer for containerization, blue/green deployment, reverse proxying, and monitoring.
 
 ## What the app does
 
